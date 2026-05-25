@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RuleBot — Rule-Based Chatbot</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --panel: #1a1a26;
+    --border: #2a2a3e;
+    --accent: #7c3aed;
+    --accent2: #06d6a0;
+    --accent3: #f72585;
+    --text: #e8e8f0;
+    --muted: #6b6b8a;
+    --user-bubble: #1e1540;
+    --bot-bubble: #0f1e18;
+    --font-mono: 'Space Mono', monospace;
+    --font-ui: 'Syne', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-ui);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(124,58,237,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(124,58,237,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  header {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 28px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(10,10,15,0.85);
+    backdrop-filter: blur(12px);
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-icon {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, var(--accent), var(--accent3));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    box-shadow: 0 0 20px rgba(124,58,237,0.4);
+  }
+
+  .logo-text {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .status-badge {
+    display: flex; align-items: center; gap: 7px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--accent2);
+    background: rgba(6,214,160,0.08);
+    border: 1px solid rgba(6,214,160,0.2);
+    padding: 5px 12px;
+    border-radius: 20px;
+  }
+
+  .status-dot {
+    width: 7px; height: 7px;
+    background: var(--accent2);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  .main {
+    flex: 1;
+    display: flex;
+    gap: 0;
+    overflow: hidden;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Sidebar */
+  .sidebar {
+    width: 220px;
+    border-right: 1px solid var(--border);
+    background: rgba(18,18,26,0.6);
+    padding: 20px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+
+  .sidebar-title {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 0 6px 10px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 6px;
+  }
+
+  .topic-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--muted);
+    font-family: var(--font-ui);
+    font-size: 13px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  .topic-btn:hover {
+    background: var(--panel);
+    border-color: var(--border);
+    color: var(--text);
+  }
+
+  .topic-btn .t-icon { font-size: 15px; }
+
+  /* Chat area */
+  .chat-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  #chatbox {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    scroll-behavior: smooth;
+  }
+
+  #chatbox::-webkit-scrollbar { width: 4px; }
+  #chatbox::-webkit-scrollbar-track { background: transparent; }
+  #chatbox::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  .msg-row {
+    display: flex;
+    gap: 12px;
+    animation: fadeUp 0.3s ease forwards;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .msg-row.user { flex-direction: row-reverse; }
+
+  .avatar {
+    width: 34px; height: 34px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .avatar.bot {
+    background: linear-gradient(135deg, var(--accent), var(--accent3));
+    box-shadow: 0 0 14px rgba(124,58,237,0.3);
+  }
+
+  .avatar.user-av {
+    background: linear-gradient(135deg, #1a1a2e, #2a2a4e);
+    border: 1px solid var(--border);
+  }
+
+  .bubble-col { display: flex; flex-direction: column; gap: 4px; max-width: 70%; }
+  .msg-row.user .bubble-col { align-items: flex-end; }
+
+  .sender-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--muted);
+    padding: 0 4px;
+    letter-spacing: 0.5px;
+  }
+
+  .bubble {
+    padding: 12px 16px;
+    border-radius: 14px;
+    line-height: 1.6;
+    font-size: 14.5px;
+    position: relative;
+  }
+
+  .bubble.bot-bubble {
+    background: var(--bot-bubble);
+    border: 1px solid rgba(6,214,160,0.15);
+    border-bottom-left-radius: 4px;
+    color: var(--text);
+  }
+
+  .bubble.user-bubble {
+    background: var(--user-bubble);
+    border: 1px solid rgba(124,58,237,0.2);
+    border-bottom-right-radius: 4px;
+    color: var(--text);
+  }
+
+  .bubble .tag {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    margin-bottom: 6px;
+    background: rgba(6,214,160,0.12);
+    color: var(--accent2);
+    border: 1px solid rgba(6,214,160,0.2);
+  }
+
+  .bubble p + p { margin-top: 6px; }
+
+  /* Typing indicator */
+  .typing-row { display: flex; gap: 12px; align-items: center; }
+  .typing-dots { display: flex; gap: 5px; padding: 14px 18px; background: var(--bot-bubble); border: 1px solid rgba(6,214,160,0.15); border-radius: 14px; border-bottom-left-radius: 4px; }
+  .typing-dots span { width: 7px; height: 7px; background: var(--accent2); border-radius: 50%; animation: bounce 1.2s infinite; }
+  .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-7px)} }
+
+  /* Input area */
+  .input-area {
+    padding: 16px 32px 20px;
+    border-top: 1px solid var(--border);
+    background: rgba(10,10,15,0.8);
+    backdrop-filter: blur(12px);
+  }
+
+  .input-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 10px 12px 10px 16px;
+    transition: border-color 0.2s;
+  }
+
+  .input-row:focus-within { border-color: var(--accent); }
+
+  #userInput {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: var(--font-ui);
+    font-size: 15px;
+    resize: none;
+    max-height: 120px;
+    line-height: 1.5;
+    padding: 2px 0;
+  }
+
+  #userInput::placeholder { color: var(--muted); }
+
+  #sendBtn {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--accent), var(--accent3));
+    border: none;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform 0.15s, box-shadow 0.15s;
+    flex-shrink: 0;
+    box-shadow: 0 0 16px rgba(124,58,237,0.3);
+  }
+
+  #sendBtn:hover { transform: scale(1.07); box-shadow: 0 0 22px rgba(124,58,237,0.5); }
+  #sendBtn:active { transform: scale(0.96); }
+  #sendBtn svg { fill: white; }
+
+  .hint-row {
+    display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px;
+  }
+
+  .hint-chip {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 4px 10px;
+    background: rgba(124,58,237,0.08);
+    border: 1px solid rgba(124,58,237,0.2);
+    border-radius: 20px;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+
+  .hint-chip:hover { background: rgba(124,58,237,0.18); color: var(--text); border-color: var(--accent); }
+
+  /* Welcome card */
+  .welcome-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px 28px;
+    max-width: 520px;
+    align-self: center;
+    margin: auto;
+  }
+
+  .welcome-card h2 { font-size: 22px; font-weight: 800; margin-bottom: 8px; }
+  .welcome-card p { color: var(--muted); font-size: 14px; line-height: 1.6; }
+  .welcome-topics { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .wt-tag {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+
+  /* Download btn */
+  #downloadBtn {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 6px 16px;
+    background: rgba(6,214,160,0.1);
+    border: 1px solid rgba(6,214,160,0.25);
+    border-radius: 8px;
+    color: var(--accent2);
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  #downloadBtn:hover { background: rgba(6,214,160,0.18); border-color: var(--accent2); }
+
+  @media (max-width: 640px) {
+    .sidebar { display: none; }
+    #chatbox { padding: 16px; }
+    .input-area { padding: 12px 16px 16px; }
+    .bubble-col { max-width: 88%; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🤖</div>
+    <span class="logo-text">RuleBot</span>
+  </div>
+  <div style="display:flex;gap:12px;align-items:center;">
+    <div class="status-badge"><div class="status-dot"></div>ONLINE</div>
+    <button id="downloadBtn" onclick="downloadSelf()">⬇ Download</button>
+  </div>
+</header>
+
+<div class="main">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-title">Topics</div>
+    <button class="topic-btn" onclick="inject('Hello!')"><span class="t-icon">👋</span>Greetings</button>
+    <button class="topic-btn" onclick="inject('What is your name?')"><span class="t-icon">🏷️</span>Identity</button>
+    <button class="topic-btn" onclick="inject('What can you do?')"><span class="t-icon">⚙️</span>Capabilities</button>
+    <button class="topic-btn" onclick="inject('Tell me a joke')"><span class="t-icon">😄</span>Jokes</button>
+    <button class="topic-btn" onclick="inject('What time is it?')"><span class="t-icon">🕐</span>Time & Date</button>
+    <button class="topic-btn" onclick="inject('What is the weather?')"><span class="t-icon">🌤️</span>Weather</button>
+    <button class="topic-btn" onclick="inject('Tell me a fact')"><span class="t-icon">🔬</span>Facts</button>
+    <button class="topic-btn" onclick="inject('Give me a quote')"><span class="t-icon">💬</span>Quotes</button>
+    <button class="topic-btn" onclick="inject('Help me')"><span class="t-icon">🆘</span>Help</button>
+    <button class="topic-btn" onclick="inject('Goodbye!')"><span class="t-icon">👋</span>Farewell</button>
+    <button class="topic-btn" onclick="inject('I am sad')"><span class="t-icon">🧠</span>Emotions</button>
+    <button class="topic-btn" onclick="inject('What is AI?')"><span class="t-icon">🤖</span>About AI</button>
+  </div>
+
+  <!-- Chat -->
+  <div class="chat-wrap">
+    <div id="chatbox">
+      <div class="welcome-card">
+        <h2>👋 Hey there!</h2>
+        <p>I'm <strong>RuleBot</strong> — a rule-based chatbot that responds using pattern matching and if-else logic. Ask me anything from the topics below!</p>
+        <div class="welcome-topics">
+          <span class="wt-tag">greetings</span>
+          <span class="wt-tag">jokes</span>
+          <span class="wt-tag">facts</span>
+          <span class="wt-tag">time & date</span>
+          <span class="wt-tag">emotions</span>
+          <span class="wt-tag">quotes</span>
+          <span class="wt-tag">about AI</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="input-area">
+      <div class="input-row">
+        <textarea id="userInput" rows="1" placeholder="Type a message… (Enter to send)" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+        <button id="sendBtn" onclick="sendMessage()" title="Send">
+          <svg width="18" height="18" viewBox="0 0 24 24"><path d="M2 21L23 12 2 3v7l15 2-15 2z"/></svg>
+        </button>
+      </div>
+      <div class="hint-row">
+        <span class="hint-chip" onclick="inject('Tell me a joke')">Tell me a joke</span>
+        <span class="hint-chip" onclick="inject('What is AI?')">What is AI?</span>
+        <span class="hint-chip" onclick="inject('Give me a quote')">Give me a quote</span>
+        <span class="hint-chip" onclick="inject('I am happy')">I am happy</span>
+        <span class="hint-chip" onclick="inject('What is the date today?')">Today's date</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ──────────────────────────────────────────────
+//  RULE-BASED RESPONSE ENGINE
+// ──────────────────────────────────────────────
+
+const jokes = [
+  "Why don't scientists trust atoms? Because they make up everything! 😄",
+  "I told my computer I needed a break. Now it won't stop sending me Kit-Kat ads. 🍫",
+  "Why do programmers prefer dark mode? Because light attracts bugs! 🐛",
+  "What do you call a fake noodle? An impasta! 🍝",
+  "Why did the scarecrow win an award? Because he was outstanding in his field! 🌾",
+  "I asked the library if they had books about paranoia. The librarian whispered: 'They're right behind you!' 📚",
+  "Why can't a bicycle stand on its own? Because it's two-tired! 🚲"
+];
+
+const facts = [
+  "🧠 The human brain has approximately 86 billion neurons.",
+  "🌍 Earth is the only planet not named after a god or goddess in our solar system.",
+  "🐙 Octopuses have three hearts, two pump blood to the gills and one to the rest of the body.",
+  "⚡ Lightning strikes the Earth about 100 times every second.",
+  "🦈 Sharks are older than trees — they've been around for over 450 million years.",
+  "🍯 Honey never spoils — archaeologists have found 3000-year-old honey in Egyptian tombs.",
+  "🌌 There are more stars in the universe than grains of sand on all of Earth's beaches."
+];
+
+const quotes = [
+  '"The only way to do great work is to love what you do." — Steve Jobs',
+  '"In the middle of every difficulty lies opportunity." — Albert Einstein',
+  '"It does not matter how slowly you go as long as you do not stop." — Confucius',
+  '"The future belongs to those who believe in the beauty of their dreams." — Eleanor Roosevelt',
+  '"Success is not final, failure is not fatal: it is the courage to continue that counts." — Winston Churchill',
+  '"The best time to plant a tree was 20 years ago. The second best time is now." — Chinese Proverb',
+  '"You miss 100% of the shots you don\'t take." — Wayne Gretzky'
+];
+
+function getRandom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+function getResponse(input) {
+  const msg = input.toLowerCase().trim();
+
+  // ── Greetings ──
+  if (/^(hi|hello|hey|howdy|sup|yo|hiya|greetings|good morning|good afternoon|good evening|what'?s up)/i.test(msg)) {
+    const greets = [
+      "Hello! Great to see you here. What would you like to talk about? 😊",
+      "Hey there! I'm RuleBot, ready to chat. Ask me anything!",
+      "Hi! Hope your day is going well. How can I help you?",
+      "Howdy! Ask me about jokes, facts, time, or just chat!"
+    ];
+    return { tag: "greeting", text: getRandom(greets) };
+  }
+
+  // ── Identity ──
+  if (/\b(your name|who are you|what are you|introduce yourself)\b/.test(msg)) {
+    return { tag: "identity", text: "I'm <strong>RuleBot</strong> — a rule-based chatbot built with pure JavaScript using if-else pattern matching. I don't use any AI or neural networks; I just match your input to predefined rules and respond accordingly! 🤖" };
+  }
+
+  // ── Capabilities ──
+  if (/\b(what can you do|help|capabilities|features|commands|what do you know)\b/.test(msg)) {
+    return { tag: "help", text: "Here's what I can do:<br>• 👋 <b>Greetings</b> — say hi!<br>• 😄 <b>Jokes</b> — ask for a joke<br>• 🔬 <b>Facts</b> — ask for a fun fact<br>• 💬 <b>Quotes</b> — ask for an inspiring quote<br>• 🕐 <b>Time & Date</b> — ask what time/date it is<br>• 🌤️ <b>Weather</b> — ask about the weather<br>• 🧠 <b>Emotions</b> — tell me how you feel<br>• 🤖 <b>About AI</b> — ask what AI is<br>• 👋 <b>Farewell</b> — say bye!" };
+  }
+
+  // ── Jokes ──
+  if (/\b(joke|funny|laugh|humor|make me laugh|tell me something funny)\b/.test(msg)) {
+    return { tag: "joke", text: getRandom(jokes) };
+  }
+
+  // ── Facts ──
+  if (/\b(fact|did you know|interesting|trivia|tell me something|learn something)\b/.test(msg)) {
+    return { tag: "fact", text: getRandom(facts) };
+  }
+
+  // ── Quotes ──
+  if (/\b(quote|inspire|motivat|wisdom|saying|words of wisdom)\b/.test(msg)) {
+    return { tag: "quote", text: "✨ " + getRandom(quotes) };
+  }
+
+  // ── Time ──
+  if (/\b(time|what time|current time|clock)\b/.test(msg)) {
+    const now = new Date();
+    const t = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    return { tag: "time", text: `⏰ The current time is <strong>${t}</strong> (your local time).` };
+  }
+
+  // ── Date ──
+  if (/\b(date|today|what day|day is it|month|year)\b/.test(msg)) {
+    const now = new Date();
+    const d = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    return { tag: "date", text: `📅 Today is <strong>${d}</strong>.` };
+  }
+
+  // ── Weather ──
+  if (/\b(weather|temperature|forecast|rain|sunny|cloudy|snow|hot|cold outside)\b/.test(msg)) {
+    return { tag: "weather", text: "🌤️ I'm a rule-based bot without internet access, so I can't fetch live weather data! For accurate forecasts, try <a href='https://weather.com' target='_blank' style='color:var(--accent2)'>weather.com</a> or your phone's weather app." };
+  }
+
+  // ── Emotions — Happy ──
+  if (/\b(happy|great|awesome|wonderful|fantastic|excited|joyful|good mood|feeling good|amazing)\b/.test(msg)) {
+    return { tag: "emotion", text: "That's wonderful to hear! 🎉 Happiness is contagious. Keep that positive energy going — it makes the world a better place!" };
+  }
+
+  // ── Emotions — Sad ──
+  if (/\b(sad|unhappy|depressed|down|upset|crying|terrible|awful|miserable|lonely|hurt)\b/.test(msg)) {
+    return { tag: "emotion", text: "I'm sorry to hear that. 💙 Remember, tough times never last, but tough people do. Take a deep breath, and know that things will get better. You're not alone! 🌟" };
+  }
+
+  // ── Emotions — Angry ──
+  if (/\b(angry|mad|furious|annoyed|frustrated|irritated|rage)\b/.test(msg)) {
+    return { tag: "emotion", text: "I can sense your frustration. 😤 Take a deep breath — it really helps. Would you like a funny joke to lighten the mood? 😄" };
+  }
+
+  // ── Emotions — Bored ──
+  if (/\b(bored|nothing to do|boring|dull|nothing happening)\b/.test(msg)) {
+    return { tag: "emotion", text: "Boredom strikes again! 😅 How about I tell you a fun fact, a hilarious joke, or an inspiring quote? Just ask! 🎲" };
+  }
+
+  // ── Emotions — Tired ──
+  if (/\b(tired|sleepy|exhausted|worn out|fatigue)\b/.test(msg)) {
+    return { tag: "emotion", text: "Rest is important! 😴 If you can, take a short break or a power nap. Even 20 minutes can refresh your mind significantly. Take care of yourself! 💤" };
+  }
+
+  // ── About AI ──
+  if (/\b(ai|artificial intelligence|machine learning|deep learning|neural network|chatgpt|llm)\b/.test(msg)) {
+    return { tag: "ai", text: "🤖 <b>Artificial Intelligence (AI)</b> is the simulation of human intelligence in machines. Unlike me (a simple rule-based bot), modern AI uses <em>machine learning</em> and <em>neural networks</em> to learn from data. I rely purely on pattern matching and if-else rules — no learning here! 😄" };
+  }
+
+  // ── Math ──
+  if (/\d+\s*[\+\-\*\/]\s*\d+/.test(msg)) {
+    try {
+      const expr = msg.match(/[\d\s\+\-\*\/\.]+/)[0].trim();
+      const result = Function('"use strict"; return (' + expr + ')')();
+      return { tag: "math", text: `🧮 <strong>${expr.trim()} = ${result}</strong>` };
+    } catch(e) {
+      return { tag: "math", text: "I couldn't compute that expression. Try something like: 5 + 3 or 12 * 4." };
+    }
+  }
+
+  // ── Age / Birthday ──
+  if (/\b(how old|age|birthday)\b/.test(msg)) {
+    return { tag: "info", text: "I don't have an age — I was brought to life by code! 🎂 But I'd love to know when YOUR birthday is!" };
+  }
+
+  // ── Creator ──
+  if (/\b(who (made|created|built|developed) you|your creator|your developer|your maker)\b/.test(msg)) {
+    return { tag: "identity", text: "I was built as a <strong>rule-based chatbot project</strong> using HTML, CSS, and JavaScript. My responses are driven entirely by pattern matching — no AI APIs, no neural networks, just good old if-else logic! 💻" };
+  }
+
+  // ── Thanks ──
+  if (/\b(thank|thanks|thank you|thx|ty|appreciate)\b/.test(msg)) {
+    return { tag: "social", text: "You're very welcome! 😊 Happy to help anytime. Is there anything else you'd like to know?" };
+  }
+
+  // ── Farewell ──
+  if (/\b(bye|goodbye|see you|cya|take care|farewell|later|gotta go|leaving)\b/.test(msg)) {
+    const farewells = [
+      "Goodbye! It was great chatting with you. Come back anytime! 👋",
+      "See you later! Hope I could be of help. Take care! 🌟",
+      "Farewell! Remember, I'm here whenever you need me. Bye! 👋",
+      "Take care! It was a pleasure. Come chat again soon! 😊"
+    ];
+    return { tag: "farewell", text: getRandom(farewells) };
+  }
+
+  // ── Compliment to bot ──
+  if (/\b(you('re| are) (cool|awesome|great|good|nice|smart|clever|helpful|amazing))\b/.test(msg)) {
+    return { tag: "social", text: "Aww, thank you! 🥰 That really means a lot to a simple rule-based bot. You're pretty awesome yourself!" };
+  }
+
+  // ── Default ──
+  const defaults = [
+    "Hmm, I'm not sure I understand that. Try asking about jokes, facts, quotes, time, or your mood! 🤔",
+    "That's a bit outside my rulebook. Try: 'Tell me a joke', 'Give me a fact', or 'What time is it?' ⚙️",
+    "I'm a rule-based bot, so I work best with specific topics. Ask me for a joke, fact, or quote! 😊",
+    "I didn't quite catch that one! Could you rephrase? Or try asking 'What can you do?' to see my capabilities."
+  ];
+  return { tag: "default", text: getRandom(defaults) };
+}
+
+// ──────────────────────────────────────────────
+//  UI HELPERS
+// ──────────────────────────────────────────────
+
+const tagColors = {
+  greeting: '#7c3aed', identity: '#f72585', help: '#06d6a0',
+  joke: '#ffd166', fact: '#118ab2', quote: '#ef476f',
+  time: '#06d6a0', date: '#06d6a0', weather: '#118ab2',
+  emotion: '#f72585', ai: '#7c3aed', math: '#ffd166',
+  social: '#06d6a0', farewell: '#f72585', default: '#6b6b8a', info: '#118ab2'
+};
+
+function appendMessage(sender, htmlContent, tag = null) {
+  const chatbox = document.getElementById('chatbox');
+  const row = document.createElement('div');
+  row.className = 'msg-row ' + (sender === 'user' ? 'user' : '');
+
+  const avatar = document.createElement('div');
+  avatar.className = 'avatar ' + (sender === 'user' ? 'user-av' : 'bot');
+  avatar.textContent = sender === 'user' ? '👤' : '🤖';
+
+  const col = document.createElement('div');
+  col.className = 'bubble-col';
+
+  const label = document.createElement('div');
+  label.className = 'sender-label';
+  label.textContent = sender === 'user' ? 'YOU' : 'RULEBOT';
+
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble ' + (sender === 'user' ? 'user-bubble' : 'bot-bubble');
+
+  if (tag && sender !== 'user') {
+    const tagEl = document.createElement('div');
+    tagEl.className = 'tag';
+    tagEl.style.background = (tagColors[tag] || '#6b6b8a') + '18';
+    tagEl.style.color = tagColors[tag] || '#6b6b8a';
+    tagEl.style.borderColor = (tagColors[tag] || '#6b6b8a') + '40';
+    tagEl.textContent = tag.toUpperCase();
+    bubble.appendChild(tagEl);
+    bubble.appendChild(document.createElement('br'));
+  }
+
+  const textNode = document.createElement('span');
+  textNode.innerHTML = htmlContent;
+  bubble.appendChild(textNode);
+
+  col.appendChild(label);
+  col.appendChild(bubble);
+  row.appendChild(avatar);
+  row.appendChild(col);
+  chatbox.appendChild(row);
+  chatbox.scrollTop = chatbox.scrollHeight;
+}
+
+function showTyping() {
+  const chatbox = document.getElementById('chatbox');
+  const row = document.createElement('div');
+  row.className = 'typing-row';
+  row.id = 'typingIndicator';
+
+  const avatar = document.createElement('div');
+  avatar.className = 'avatar bot';
+  avatar.textContent = '🤖';
+
+  const dots = document.createElement('div');
+  dots.className = 'typing-dots';
+  dots.innerHTML = '<span></span><span></span><span></span>';
+
+  row.appendChild(avatar);
+  row.appendChild(dots);
+  chatbox.appendChild(row);
+  chatbox.scrollTop = chatbox.scrollHeight;
+}
+
+function removeTyping() {
+  const el = document.getElementById('typingIndicator');
+  if (el) el.remove();
+}
+
+function sendMessage() {
+  const input = document.getElementById('userInput');
+  const text = input.value.trim();
+  if (!text) return;
+
+  appendMessage('user', escapeHtml(text));
+  input.value = '';
+  input.style.height = 'auto';
+
+  showTyping();
+  const delay = 500 + Math.random() * 600;
+
+  setTimeout(() => {
+    removeTyping();
+    const resp = getResponse(text);
+    appendMessage('bot', resp.text, resp.tag);
+  }, delay);
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+function inject(text) {
+  const input = document.getElementById('userInput');
+  input.value = text;
+  input.focus();
+  sendMessage();
+}
+
+function downloadSelf() {
+  const html = document.documentElement.outerHTML;
+  const blob = new Blob([html], { type: 'text/html' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'rulebot-chatbot.html';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// Auto-focus input on load
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    const r = getResponse('hello');
+    appendMessage('bot', r.text, r.tag);
+    document.getElementById('userInput').focus();
+  }, 400);
+});
+</script>
+</body>
+</html>
